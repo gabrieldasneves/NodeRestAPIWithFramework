@@ -11,6 +11,6 @@ Requirements analysis
 
 ## NFR
 
-- [] the transaction can be of the credit type that will add to the total value, or debit that will subtract
+- [x] the transaction can be of the credit type that will add to the total value, or debit that will subtract
 - [] it must be possible to identify the user among the transaction requests he created
 - [] the user can only view transactions that he created
