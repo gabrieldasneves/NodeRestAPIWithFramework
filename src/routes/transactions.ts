@@ -2,31 +2,58 @@ import { FastifyInstance } from "fastify";
 import { knex } from "../database";
 import { z } from "zod";
 import crypto, { randomUUID } from "node:crypto";
+import { checkSessionIdExists } from "../middlewares/check-sessionID-exists";
 
 export async function transactionsRoutes(app: FastifyInstance) {
-  app.get("/transactions", async () => {
-    const transactions = await knex("transactions").select();
+  app.get(
+    "/transactions",
+    {
+      preHandler: checkSessionIdExists,
+    },
+    async (request, reply) => {
+      const { sessionId } = request.cookies;
+      const transactions = await knex("transactions")
+        .where("session_id", sessionId)
+        .select();
 
-    return { transactions };
-  });
+      return { transactions };
+    }
+  );
 
-  app.get("/transactions/:id", async (request) => {
-    const getTransactionParamsSchema = z.object({
-      id: z.string().uuid(),
-    });
+  app.get(
+    "/transactions/:id",
+    {
+      preHandler: checkSessionIdExists,
+    },
+    async (request) => {
+      const getTransactionParamsSchema = z.object({
+        id: z.string().uuid(),
+      });
+      const { sessionId } = request.cookies;
+      const { id } = getTransactionParamsSchema.parse(request.params);
+      const transaction = await knex("transactions")
+        .where("id", id)
+        .andWhere("session_id", sessionId)
+        .first();
 
-    const { id } = getTransactionParamsSchema.parse(request.params);
-    const transaction = await knex("transactions").where("id", id).first();
+      return { transaction };
+    }
+  );
 
-    return { transaction };
-  });
-
-  app.get("/transactions/summary", async () => {
-    const summary = knex("transactions")
-      .sum("amount", { as: "Amount" })
-      .first();
-    return summary;
-  });
+  app.get(
+    "/transactions/summary",
+    {
+      preHandler: checkSessionIdExists,
+    },
+    async (request) => {
+      const { sessionId } = request.cookies;
+      const summary = knex("transactions")
+        .where("session_id", sessionId)
+        .sum("amount", { as: "Amount" })
+        .first();
+      return summary;
+    }
+  );
 
   app.post("/transactions", async (request, reply) => {
     const createTransactionBodySchema = z.object({
@@ -45,7 +72,7 @@ export async function transactionsRoutes(app: FastifyInstance) {
       sessionId = randomUUID();
       reply.cookie("sessionId", sessionId, {
         path: "/",
-        maxAge: 1000 * 60 * 60 * 24 * 7, //7 days
+        maxAge: 60 * 60 * 24 * 7, //7 days
       });
     }
 
